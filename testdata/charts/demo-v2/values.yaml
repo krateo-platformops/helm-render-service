@@ -1,0 +1,7 @@
+replicaCount: 1
+message: hello
+image:
+  repository: nginx
+  tag: "1.27"
+service:
+  port: 8080
