@@ -19,7 +19,7 @@
         "repository": {
           "type": "string",
           "title": "Image repository",
-          "default": "ghcr.io/braghettos/helm-render-service"
+          "default": "ghcr.io/braghettos/krateo-helm-render-service"
         },
         "pullPolicy": {
           "type": "string",
