@@ -44,5 +44,8 @@ config:
 # `server-url` points at this chart's Service, so snowplow RESTAction
 # api-steps can reach POST /render and /diff via `endpointRef`.
 snowplowEndpoint:
-  enabled: false
+  # Default ON: this is the Krateo render service — the endpoint Secret the portal
+  # RESTActions resolve (blueprint-render, upgrade-impact) is always needed. Deploying as a
+  # Krateo Composition component thus needs no extra componentValues.
+  enabled: true
   name: helm-render-endpoint

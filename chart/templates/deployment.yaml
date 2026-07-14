@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "helm-render-service.fullname" . }}
+  name: {{ include "krateo-helm-render-service.fullname" . }}
   labels:
-    {{- include "helm-render-service.labels" . | nindent 4 }}
+    {{- include "krateo-helm-render-service.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "helm-render-service.selectorLabels" . | nindent 6 }}
+      {{- include "krateo-helm-render-service.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "helm-render-service.labels" . | nindent 8 }}
+        {{- include "krateo-helm-render-service.labels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
