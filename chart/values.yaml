@@ -1,0 +1,48 @@
+# Default values for helm-render-service.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/braghettos/helm-render-service
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+# HRS_* environment knobs. An empty string leaves the variable unset, so the
+# binary's built-in default (listed alongside) applies.
+config:
+  # HRS_KUBE_VERSION - .Capabilities.KubeVersion presented to templates (default v1.33.0)
+  kubeVersion: ""
+  # HRS_RENDER_TIMEOUT - per-request render timeout, Go duration (default 15s)
+  renderTimeout: ""
+  # HRS_MAX_REQUEST_BYTES - request body cap (default 2097152 = 2 MiB)
+  maxRequestBytes: ""
+  # HRS_MAX_CHART_BYTES - chart download cap (default 20971520 = 20 MiB)
+  maxChartBytes: ""
+  # HRS_MAX_OUTPUT_BYTES - rendered output cap (default 5242880 = 5 MiB)
+  maxOutputBytes: ""
+  # HRS_ALLOW_HTTP - allow plain http:// chart URLs (trusted dev environments only)
+  allowHTTP: false
+
+# Optional snowplow Endpoint Secret: a Secret in the release namespace whose
+# `server-url` points at this chart's Service, so snowplow RESTAction
+# api-steps can reach POST /render and /diff via `endpointRef`.
+snowplowEndpoint:
+  enabled: false
+  name: helm-render-endpoint
