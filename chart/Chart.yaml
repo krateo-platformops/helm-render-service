@@ -1,0 +1,14 @@
+apiVersion: v2
+name: helm-render-service
+description: Stateless helm-template render/dry-run HTTP service for the Krateo self-service program (client-only helm SDK, no cluster access)
+type: application
+
+# CHART_VERSION / APP_VERSION are substituted by .github/workflows/release-oci.yaml
+# at tag time: CHART_VERSION <- the git tag, APP_VERSION <- the latest semver tag
+# of the app repo (this repo; both come from the same tag push, so they match).
+version: CHART_VERSION
+appVersion: APP_VERSION
+
+home: https://github.com/braghettos/helm-render-service
+sources:
+  - https://github.com/braghettos/helm-render-service

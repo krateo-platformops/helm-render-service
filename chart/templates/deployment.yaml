@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helm-render-service.fullname" . }}
+  labels:
+    {{- include "helm-render-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "helm-render-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "helm-render-service.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # No Kubernetes client in the service: never mount a token.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          {{- $c := .Values.config }}
+          {{- if or $c.kubeVersion $c.renderTimeout $c.maxRequestBytes $c.maxChartBytes $c.maxOutputBytes $c.allowHTTP }}
+          env:
+            {{- with $c.kubeVersion }}
+            - name: HRS_KUBE_VERSION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $c.renderTimeout }}
+            - name: HRS_RENDER_TIMEOUT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $c.maxRequestBytes }}
+            - name: HRS_MAX_REQUEST_BYTES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $c.maxChartBytes }}
+            - name: HRS_MAX_CHART_BYTES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $c.maxOutputBytes }}
+            - name: HRS_MAX_OUTPUT_BYTES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if $c.allowHTTP }}
+            - name: HRS_ALLOW_HTTP
+              value: "true"
+            {{- end }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

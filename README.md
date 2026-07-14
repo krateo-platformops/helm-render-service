@@ -181,6 +181,80 @@ Returns `200 ok`.
 | `HRS_MAX_OUTPUT_BYTES` | `5242880` (5 MiB) | Rendered output cap |
 | `HRS_ALLOW_HTTP` | `false` | Allow plain `http://` chart URLs (trusted dev only) |
 
+## Deploy
+
+The repo ships its own release pipelines — **one bare-semver tag push
+publishes both** the container image
+(`.github/workflows/release-image.yaml` → `ghcr.io/braghettos/helm-render-service:<tag>`,
+linux/amd64) and the helm chart
+(`.github/workflows/release-oci.yaml` → `oci://ghcr.io/braghettos/krateo/helm-render-service:<tag>`,
+`CHART_VERSION`/`APP_VERSION` placeholders in `chart/Chart.yaml` are resolved
+to the tag at package time).
+
+```sh
+# 1. Release: tag + push (image AND chart publish from this one tag)
+git tag 0.1.0 && git push origin 0.1.0
+
+# 2. Install the chart (creates Deployment + ClusterIP Service :8080;
+#    --set snowplowEndpoint.enabled=true also creates the snowplow Endpoint Secret)
+helm install helm-render-service oci://ghcr.io/braghettos/krateo/helm-render-service \
+  --version 0.1.0 --namespace krateo-system --set snowplowEndpoint.enabled=true
+
+# 3. Verify from inside the cluster
+kubectl run curl --rm -it --image=curlimages/curl --restart=Never -n krateo-system -- \
+  curl -s http://helm-render-service.krateo-system.svc:8080/healthz
+```
+
+### snowplow wiring
+
+`snowplowEndpoint.enabled=true` renders a Secret in the release namespace that
+snowplow's `endpointRef` resolves as an external Endpoint (`server-url` is the
+only required key; the service ignores the Bearer token snowplow forwards):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helm-render-endpoint          # values.snowplowEndpoint.name
+  namespace: krateo-system
+  annotations:
+    "krateo.io/verbose": "true"
+type: Opaque
+stringData:
+  server-url: http://helm-render-service.krateo-system.svc:8080
+```
+
+A RESTAction api-step can then POST to `/render` (or `/diff`) — **illustrative
+example** (adapt chart URL, filter and namespaces; `payload` is a JSON string):
+
+```yaml
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: chart-preview
+  namespace: krateo-system
+spec:
+  api:
+    - name: render
+      endpointRef:
+        name: helm-render-endpoint
+        namespace: krateo-system
+      path: /render
+      verb: POST
+      headers:
+        - 'Content-Type: application/json'
+      payload: |
+        {
+          "chart": {"url": "oci://ghcr.io/braghettos/krateo-frontend-chart", "version": "1.3.5"},
+          "values": {},
+          "releaseName": "preview",
+          "namespace": "krateo-system"
+        }
+  # /render answers 200 with either {objects: [...]} or {error: "..."} —
+  # surface both so a failed render shows up as widget data, not a step error.
+  filter: "{objects: [.render.objects[]? | {kind, name, namespace}], error: (.render.error // empty)}"
+```
+
 ## Development
 
 ```sh
