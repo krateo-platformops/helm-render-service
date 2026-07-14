@@ -63,3 +63,53 @@ func TestSchemaChanged(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaFieldDiff(t *testing.T) {
+	// base: region (default eu, required), size (default s)
+	base := json.RawMessage(`{"type":"object","required":["region"],"properties":{
+		"region":{"type":"string","default":"eu"},
+		"size":{"type":"string","default":"s"}}}`)
+	// head: region default eu->us; size removed; replicas added; tls newly required;
+	//       database.host added (nested)
+	head := json.RawMessage(`{"type":"object","required":["region","tls"],"properties":{
+		"region":{"type":"string","default":"us"},
+		"replicas":{"type":"integer","default":3},
+		"tls":{"type":"boolean"},
+		"database":{"type":"object","properties":{"host":{"type":"string"}}}}}`)
+
+	d := schemaFieldDiff(base, head)
+	if d == nil {
+		t.Fatal("schemaFieldDiff = nil, want a diff")
+	}
+	eq := func(name string, got, want []string) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Errorf("%s = %v, want %v", name, got, want)
+			return
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("%s = %v, want %v", name, got, want)
+				return
+			}
+		}
+	}
+	eq("added", d.Added, []string{"database.host", "replicas", "tls"}) // sorted
+	eq("removed", d.Removed, []string{"size"})
+	eq("nowRequired", d.NowRequired, []string{"tls"}) // region was already required
+	eq("changedDefaults", d.ChangedDefaults, []string{"region"})
+}
+
+func TestSchemaFieldDiffNilWhenNeitherHasSchema(t *testing.T) {
+	if d := schemaFieldDiff(nil, nil); d != nil {
+		t.Errorf("schemaFieldDiff(nil,nil) = %+v, want nil", d)
+	}
+}
+
+func TestSchemaFieldDiffSchemaAppearing(t *testing.T) {
+	head := json.RawMessage(`{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`)
+	d := schemaFieldDiff(nil, head)
+	if d == nil || len(d.Added) != 1 || d.Added[0] != "name" || len(d.NowRequired) != 1 || d.NowRequired[0] != "name" {
+		t.Fatalf("appearing schema = %+v, want name added+required", d)
+	}
+}
