@@ -16,7 +16,46 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const defaultMaxChartBytes = 50 << 20 // 50 MiB
+const defaultMaxChartBytes = 20 << 20 // 20 MiB
+
+// OCIPuller fetches a packaged chart archive from an OCI registry. ref is a
+// helm OCI reference without the oci:// prefix ("host/path:tag"). It exists
+// as an interface so the network path can be faked in tests.
+type OCIPuller interface {
+	Pull(ctx context.Context, ref string) ([]byte, error)
+}
+
+// registryPuller is the production OCIPuller (anonymous pulls, helm SDK
+// registry client). The helm client does not take a context, so the pull runs
+// in a goroutine and is abandoned when ctx expires.
+type registryPuller struct{}
+
+func (registryPuller) Pull(ctx context.Context, ref string) ([]byte, error) {
+	type outcome struct {
+		data []byte
+		err  error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		client, err := registry.NewClient()
+		if err != nil {
+			done <- outcome{nil, fmt.Errorf("create registry client: %w", err)}
+			return
+		}
+		res, err := client.Pull(ref, registry.PullOptWithChart(true))
+		if err != nil {
+			done <- outcome{nil, err}
+			return
+		}
+		done <- outcome{res.Chart.Data, nil}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case o := <-done:
+		return o.data, o.err
+	}
+}
 
 // Loader resolves a ChartSpec into a loaded *chart.Chart without ever
 // touching a Kubernetes cluster. Remote fetches are bounded by MaxChartBytes
@@ -25,14 +64,20 @@ type Loader struct {
 	// HTTPClient used for tgz and repo-index downloads. Defaults to a plain
 	// http.Client (timeouts come from the request context).
 	HTTPClient *http.Client
+	// OCI overrides the OCI pull path (tests). Defaults to the helm SDK
+	// registry client with anonymous pulls.
+	OCI OCIPuller
 	// MaxChartBytes caps downloaded chart archives and repo indexes.
-	// Defaults to 50 MiB.
+	// Defaults to 20 MiB.
 	MaxChartBytes int64
+	// AllowHTTP permits plain http:// chart URLs (tests / trusted dev
+	// environments only). file:// and local paths are always rejected.
+	AllowHTTP bool
 }
 
 // Load resolves and loads the chart designated by spec.
 func (l *Loader) Load(ctx context.Context, spec ChartSpec) (*chart.Chart, error) {
-	if err := spec.Validate(); err != nil {
+	if err := spec.Validate(l.AllowHTTP); err != nil {
 		return nil, err
 	}
 	switch {
@@ -100,21 +145,16 @@ func loadInline(files []ChartFile) (*chart.Chart, error) {
 }
 
 // loadOCI pulls a chart from an OCI registry (anonymous in v0).
-func (l *Loader) loadOCI(_ context.Context, spec ChartSpec) (*chart.Chart, error) {
+func (l *Loader) loadOCI(ctx context.Context, spec ChartSpec) (*chart.Chart, error) {
 	ref := strings.TrimPrefix(spec.URL, "oci://")
 	if spec.Version != "" && !lastSegmentHasTag(ref) {
 		ref += ":" + spec.Version
 	}
 
-	client, err := registry.NewClient()
-	if err != nil {
-		return nil, fmt.Errorf("create registry client: %w", err)
-	}
-	res, err := client.Pull(ref, registry.PullOptWithChart(true))
+	data, err := l.oci().Pull(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("pull %s: %w", spec.URL, err)
 	}
-	data := res.Chart.Data
 	if int64(len(data)) > l.maxBytes() {
 		return nil, fmt.Errorf("chart %s exceeds the %d byte limit", spec.URL, l.maxBytes())
 	}
@@ -202,6 +242,13 @@ func (l *Loader) httpClient() *http.Client {
 		return l.HTTPClient
 	}
 	return http.DefaultClient
+}
+
+func (l *Loader) oci() OCIPuller {
+	if l.OCI != nil {
+		return l.OCI
+	}
+	return registryPuller{}
 }
 
 func (l *Loader) maxBytes() int64 {
