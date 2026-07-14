@@ -265,7 +265,7 @@ make docker   # ghcr.io/braghettos/helm-render-service:dev
 make run      # go run . (listens on :8080)
 ```
 
-Tests run fully offline: fixture charts live in `testdata/charts/demo-v1` and
+Tests run fully offline: fixture charts live in `testdata/charts/demo-v1 (manifest as Chart.yaml.tpl)` and
 `.../demo-v2` (v2 adds a Service, changes the ConfigMap and extends the
 values schema, so `/diff` has something to find); the helm-repo/tgz fetch
 path is exercised against `httptest` servers and the OCI path through a fake

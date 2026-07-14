@@ -59,7 +59,14 @@ func chartFiles(t *testing.T, dir string) []render.ChartFile {
 		if err != nil {
 			return err
 		}
-		files = append(files, render.ChartFile{Path: filepath.ToSlash(rel), Content: string(content)})
+		// Fixtures store the manifest as Chart.yaml.tpl so the release-oci workflow's
+		// `find -name Chart.yaml` never mistakes these test charts for publishable charts;
+		// send it to the render service under its real name.
+		slashed := filepath.ToSlash(rel)
+		if slashed == "Chart.yaml.tpl" {
+			slashed = "Chart.yaml"
+		}
+		files = append(files, render.ChartFile{Path: slashed, Content: string(content)})
 		return nil
 	})
 	if err != nil {
