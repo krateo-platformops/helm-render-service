@@ -168,7 +168,7 @@
         "enabled": {
           "type": "boolean",
           "title": "Create the Endpoint Secret",
-          "default": false
+          "default": true
         },
         "name": {
           "type": "string",
