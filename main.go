@@ -25,9 +25,11 @@ const defaultKubeVersion = "v1.33.0"
 func main() {
 	addr := envString("HRS_ADDR", ":8080")
 	kubeVersionRaw := envString("HRS_KUBE_VERSION", defaultKubeVersion)
-	renderTimeout := envDuration("HRS_RENDER_TIMEOUT", 30*time.Second)
-	maxRequestBytes := envInt64("HRS_MAX_REQUEST_BYTES", 10<<20)
-	maxChartBytes := envInt64("HRS_MAX_CHART_BYTES", 50<<20)
+	renderTimeout := envDuration("HRS_RENDER_TIMEOUT", 15*time.Second)
+	maxRequestBytes := envInt64("HRS_MAX_REQUEST_BYTES", 2<<20)
+	maxChartBytes := envInt64("HRS_MAX_CHART_BYTES", 20<<20)
+	maxOutputBytes := envInt64("HRS_MAX_OUTPUT_BYTES", 5<<20)
+	allowHTTP := envBool("HRS_ALLOW_HTTP", false)
 
 	kubeVersion, err := chartutil.ParseKubeVersion(kubeVersionRaw)
 	if err != nil {
@@ -39,6 +41,8 @@ func main() {
 		RenderTimeout:   renderTimeout,
 		MaxRequestBytes: maxRequestBytes,
 		MaxChartBytes:   maxChartBytes,
+		MaxOutputBytes:  maxOutputBytes,
+		AllowHTTP:       allowHTTP,
 	})
 
 	srv := &http.Server{
@@ -51,8 +55,8 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("helm-render-service listening on %s (kubeVersion=%s renderTimeout=%s maxRequestBytes=%d maxChartBytes=%d)",
-			addr, kubeVersionRaw, renderTimeout, maxRequestBytes, maxChartBytes)
+		log.Printf("helm-render-service listening on %s (kubeVersion=%s renderTimeout=%s maxRequestBytes=%d maxChartBytes=%d maxOutputBytes=%d allowHTTP=%t)",
+			addr, kubeVersionRaw, renderTimeout, maxRequestBytes, maxChartBytes, maxOutputBytes, allowHTTP)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %v", err)
 		}
@@ -87,6 +91,18 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		log.Fatalf("invalid %s %q: %v", key, v, err)
 	}
 	return d
+}
+
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		log.Fatalf("invalid %s %q: %v", key, v, err)
+	}
+	return b
 }
 
 func envInt64(key string, fallback int64) int64 {

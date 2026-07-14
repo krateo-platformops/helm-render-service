@@ -3,66 +3,96 @@
 Stateless `helm template` render/dry-run HTTP service for the Krateo
 self-service program. It renders a chart against values **without touching a
 cluster**: portal builders, preview verbs and upgrade-impact call it over
-plain HTTP+JSON (snowplow reaches it through its existing external
-`endpointRef` mechanism).
+plain HTTP+JSON (snowplow reaches it through an Endpoint Secret + POST
+api-step).
 
-- **No Kubernetes client, no cluster access.** Rendering uses the helm SDK
-  (`action.Install` with `DryRun` + `ClientOnly` + `Replace`), exactly like
-  `helm template`.
-- **No auth in v0** — the service is meant to run cluster-internal.
+- **No Kubernetes client, no kubeconfig, no cluster access.** Rendering uses
+  the helm Go SDK (`action.Install` with `DryRun` + `ClientOnly` + `Replace`),
+  exactly like `helm template`. No external binaries are ever executed.
+- **Auth: accepted and ignored.** `Authorization: Bearer ...` headers (as
+  sent by a snowplow Endpoint Secret) pass through untouched; the service is
+  meant to run cluster-internal. Real service-to-service auth is on the
+  roadmap.
 - **Stateless** — nothing is persisted between requests.
 
 ## API
 
 ### `POST /render`
 
-Render a chart against values.
+Render a chart against values. Two input modes:
 
-Request body:
-
-```json
+```jsonc
+// Mode 1: remote chart
 {
   "chart": {
-    "url": "oci://ghcr.io/org/mychart",
-    "repo": "",
-    "version": "1.2.3",
-    "files": []
+    "url": "oci://ghcr.io/org/mychart",   // oci:// | https://...tgz | https:// repo base URL
+    "version": "1.2.3",                   // optional (OCI tag / repo entry); empty = latest for repos
+    "repo": ""                            // chart name, only for helm-repo base URLs
   },
-  "values": {},
-  "releaseName": "preview",
-  "namespace": "default"
+  "values": {},                           // optional values overlay
+  "releaseName": "preview",               // optional, default "render"
+  "namespace": "default"                  // optional, default "default"
+}
+
+// Mode 2: inline chart tree (builder drafts)
+{
+  "rawTemplates": {
+    "Chart.yaml": "apiVersion: v2\nname: draft\nversion: 0.1.0\n",
+    "values.yaml": "who: world\n",
+    "templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\n..."
+  },
+  "values": {"who": "krateo"}
 }
 ```
 
-Chart sources (exactly one):
+Chart URL sources (exactly one input mode per request):
 
 | Source | Fields |
 | --- | --- |
-| OCI registry | `url: "oci://host/path[:tag]"` (+ optional `version` used as the tag) |
-| Direct archive | `url: "https://host/path/chart-1.2.3.tgz"` |
-| Classic helm repository | `url: "https://charts.example.com"` (repo base URL) + `repo: "<chart name>"` + optional `version` (empty = latest) |
-| Inline chart tree (builder drafts) | `files: [{"path": "Chart.yaml", "content": "..."}, ...]` — paths relative to the chart root; `files` is also accepted at the top level of the request as an alias |
+| OCI registry | `chart.url: "oci://host/path[:tag]"` (+ optional `version` used as the tag) |
+| Direct archive | `chart.url: "https://host/path/chart-1.2.3.tgz"` |
+| Classic helm repository | `chart.url: "https://charts.example.com"` (repo base URL) + `chart.repo: "<chart name>"` + optional `version` (empty = latest) |
+| Inline chart tree | `rawTemplates: {"<path>": "<content>", ...}` — paths relative to the chart root. `chart.files` / top-level `files` (`[{"path", "content"}]` arrays) are accepted as equivalent spellings |
 
-Responses:
+`file://` URLs, local paths and plain `http://` are rejected (`http://` can be
+re-enabled with `HRS_ALLOW_HTTP=true` for trusted dev environments only).
 
-- `200` — `{"manifests": [{"apiVersion", "kind", "name", "namespace", "yaml"}], "valuesSchema": <object|null>, "notes": <string|null>}`.
-  `valuesSchema` is the chart's `values.schema.json` when present; `notes` is
-  the rendered `NOTES.txt`.
-- `400` — `{"error": "..."}` malformed JSON / invalid chart spec / invalid release name.
+Responses — **a chart that fails to fetch, load or render is data, not a
+server error**; only a malformed request is a 4xx:
+
+- `200` success:
+
+  ```jsonc
+  {
+    "objects": [
+      {"apiVersion": "apps/v1", "kind": "Deployment", "name": "x",
+       "namespace": "default",           // as declared by the manifest; "" when the template omits it
+       "yaml": "# Source: ...\napiVersion: apps/v1\n..."}
+    ],
+    "valuesSchema": { /* the chart's values.schema.json */ },  // omitted when the chart ships none
+    "notes": "rendered NOTES.txt"                              // omitted when absent
+  }
+  ```
+
+  Objects keep helm's rendering order; hook manifests are included (rendered,
+  never executed).
+
+- `200` render failure — `{"error": "<helm error text>"}` (bad values against
+  the chart schema, template `fail`, unreachable/oversized chart, timeout, ...).
+- `400` — `{"error": "..."}` malformed JSON / invalid chart spec / rejected
+  URL scheme / more than one input mode / invalid release name.
 - `413` — `{"error": "..."}` request body over the size cap.
-- `422` — `{"error": "..."}` chart fetch/load/render failure; the helm error text is passed through (this is where schema-invalid values land).
-- `504` — `{"error": "..."}` render exceeded the timeout.
 
 Examples:
 
 ```sh
 # Inline chart tree (builder draft)
 curl -s localhost:8080/render -X POST -H 'Content-Type: application/json' -d '{
-  "chart": {"files": [
-    {"path": "Chart.yaml", "content": "apiVersion: v2\nname: draft\nversion: 0.1.0\n"},
-    {"path": "values.yaml", "content": "who: world\n"},
-    {"path": "templates/cm.yaml", "content": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-hello\ndata:\n  greeting: hello {{ .Values.who }}\n"}
-  ]},
+  "rawTemplates": {
+    "Chart.yaml": "apiVersion: v2\nname: draft\nversion: 0.1.0\n",
+    "values.yaml": "who: world\n",
+    "templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-hello\ndata:\n  greeting: hello {{ .Values.who }}\n"
+  },
   "values": {"who": "krateo"}
 }'
 
@@ -110,7 +140,8 @@ Objects are keyed by `(apiVersion, kind, namespace, name)`; a change summary
 names the top-level fields (`spec`, `data`, `metadata`, ...) whose parsed
 content differs. YAML comments (e.g. helm's `# Source:` lines) never count as
 changes. `releaseName`/`namespace` are accepted and applied to both sides.
-Errors are prefixed with the failing side (`"base: ..."` / `"head: ..."`).
+Render failures follow the same error model as `/render`: `200` with
+`{"error": "base: ..."}` / `{"error": "head: ..."}` naming the failing side.
 
 ### `GET /healthz`
 
@@ -118,21 +149,25 @@ Returns `200 ok`.
 
 ## Guardrails & semantics
 
-- **Request size cap** — default 10 MiB (`413` beyond it).
-- **Render timeout** — default 30s per request, covering chart download and
-  template execution; a `/diff` shares one budget across both renders (`504`
-  on expiry).
-- **Chart download cap** — default 50 MiB.
-- **`lookup` returns empty** — like `helm template`, the template `lookup`
-  function returns empty results because there is no cluster to query.
-  Charts whose output depends on `lookup` render, but with those branches
-  empty.
+- **Request size cap** — default 2 MiB (`413` beyond it).
+- **Chart download cap** — default 20 MiB (exceeding it is a render error:
+  `200` + `{error}`).
+- **Render timeout** — default 15s per request wall-clock, covering chart
+  download and template execution (context timeout; a `/diff` shares one
+  budget across both renders). Expiry is a render error: `200` +
+  `{"error": "render timed out after 15s"}`.
+- **Rendered output cap** — default 5 MiB of manifest output (render error).
+- **URL scheme allowlist** — `oci://` and `https://` only; `file://` and
+  local paths are always rejected (`400`).
+- **No cluster access ever** — no kubeconfig, no `helm install`, no exec of
+  external binaries. The template `lookup` function returns empty results,
+  like `helm template`.
 - **Hooks are rendered, never executed** — hook manifests are included in
-  `manifests` so callers see every object the chart would create; nothing is
+  `objects` so callers see every object the chart would create; nothing is
   applied anywhere.
 - **Dependencies must be vendored** — subcharts have to be bundled in the
   archive/file tree (as `helm package` does); missing dependencies fail the
-  render with a `422`.
+  render with a `200` + `{error}`.
 
 ## Configuration
 
@@ -140,27 +175,32 @@ Returns `200 ok`.
 | --- | --- | --- |
 | `HRS_ADDR` | `:8080` | Listen address |
 | `HRS_KUBE_VERSION` | `v1.33.0` | `.Capabilities.KubeVersion` presented to templates |
-| `HRS_RENDER_TIMEOUT` | `30s` | Per-request render timeout |
-| `HRS_MAX_REQUEST_BYTES` | `10485760` | Request body cap |
-| `HRS_MAX_CHART_BYTES` | `52428800` | Chart download cap |
+| `HRS_RENDER_TIMEOUT` | `15s` | Per-request render timeout |
+| `HRS_MAX_REQUEST_BYTES` | `2097152` (2 MiB) | Request body cap |
+| `HRS_MAX_CHART_BYTES` | `20971520` (20 MiB) | Chart download cap |
+| `HRS_MAX_OUTPUT_BYTES` | `5242880` (5 MiB) | Rendered output cap |
+| `HRS_ALLOW_HTTP` | `false` | Allow plain `http://` chart URLs (trusted dev only) |
 
 ## Development
 
 ```sh
 make build    # bin/helm-render-service
 make test     # go test ./...
+make vet      # go vet ./...
 make docker   # ghcr.io/braghettos/helm-render-service:dev
 make run      # go run . (listens on :8080)
 ```
 
-Fixture charts for the tests live in `testdata/charts/demo-v1` and
+Tests run fully offline: fixture charts live in `testdata/charts/demo-v1` and
 `.../demo-v2` (v2 adds a Service, changes the ConfigMap and extends the
-values schema, so `/diff` has something to find).
+values schema, so `/diff` has something to find); the helm-repo/tgz fetch
+path is exercised against `httptest` servers and the OCI path through a fake
+`render.OCIPuller`.
 
 ## v1 roadmap
 
-- **Auth** — service-to-service auth (mTLS or bearer) once exposed beyond the
-  cluster boundary.
+- **Auth** — service-to-service auth (mTLS or bearer validation) once exposed
+  beyond the cluster boundary; today bearer tokens are accepted and ignored.
 - **OCI/repo credentials** — private registries and authenticated helm repos
   (per-request secret refs, not baked config).
 - **Chart cache** — content-addressed cache of downloaded archives keyed by

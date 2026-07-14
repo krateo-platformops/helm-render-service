@@ -30,6 +30,9 @@ type Options struct {
 	// KubeVersion sets the .Capabilities.KubeVersion seen by templates.
 	// nil keeps the helm SDK default.
 	KubeVersion *chartutil.KubeVersion
+	// MaxOutputBytes caps the total rendered manifest size (manifests +
+	// hooks). 0 means unlimited.
+	MaxOutputBytes int64
 }
 
 // Manifest is one rendered Kubernetes object.
@@ -99,8 +102,29 @@ func Render(ctx context.Context, ch *chart.Chart, values map[string]interface{},
 		if o.err != nil {
 			return nil, o.err
 		}
+		if err := checkOutputSize(o.rel, opts.MaxOutputBytes); err != nil {
+			return nil, err
+		}
 		return buildResult(ch, o.rel), nil
 	}
+}
+
+// checkOutputSize enforces the rendered-output guardrail (manifests plus
+// hook manifests).
+func checkOutputSize(rel *release.Release, maxBytes int64) error {
+	if maxBytes <= 0 {
+		return nil
+	}
+	total := int64(len(rel.Manifest))
+	for _, h := range rel.Hooks {
+		if h != nil {
+			total += int64(len(h.Manifest))
+		}
+	}
+	if total > maxBytes {
+		return fmt.Errorf("rendered output is %d bytes, over the %d byte limit", total, maxBytes)
+	}
+	return nil
 }
 
 func buildResult(ch *chart.Chart, rel *release.Release) *Result {
