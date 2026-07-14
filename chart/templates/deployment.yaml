@@ -22,6 +22,10 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        # distroless nonroot is a NON-NUMERIC user; kubelet cannot verify runAsNonRoot
+        # without an explicit numeric UID (CreateContainerConfigError otherwise)
+        runAsUser: 65532
+        runAsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
