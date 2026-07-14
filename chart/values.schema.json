@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
   "title": "krateo-helm-render-service",
-  "description": "Stateless helm-template render/dry-run HTTP service — full-coverage schema.",
+  "description": "Stateless helm-template render/dry-run HTTP service \u2014 full-coverage schema.",
   "additionalProperties": false,
   "properties": {
     "replicaCount": {
@@ -90,12 +90,8 @@
           "additionalProperties": false,
           "properties": {
             "cpu": {
-              "type": [
-                "string",
-                "number"
-              ],
               "title": "CPU request",
-              "default": "100m"
+              "x-kubernetes-int-or-string": true
             },
             "memory": {
               "type": "string",
@@ -110,12 +106,8 @@
           "additionalProperties": false,
           "properties": {
             "cpu": {
-              "type": [
-                "string",
-                "number"
-              ],
               "title": "CPU limit",
-              "default": "1"
+              "x-kubernetes-int-or-string": true
             },
             "memory": {
               "type": "string",
@@ -145,31 +137,19 @@
           "default": ""
         },
         "maxRequestBytes": {
-          "type": [
-            "string",
-            "integer"
-          ],
           "title": "HRS_MAX_REQUEST_BYTES",
           "description": "Request body cap in bytes (binary default 2097152 = 2 MiB).",
-          "default": ""
+          "x-kubernetes-int-or-string": true
         },
         "maxChartBytes": {
-          "type": [
-            "string",
-            "integer"
-          ],
           "title": "HRS_MAX_CHART_BYTES",
           "description": "Chart download cap in bytes (binary default 20971520 = 20 MiB).",
-          "default": ""
+          "x-kubernetes-int-or-string": true
         },
         "maxOutputBytes": {
-          "type": [
-            "string",
-            "integer"
-          ],
           "title": "HRS_MAX_OUTPUT_BYTES",
           "description": "Rendered output cap in bytes (binary default 5242880 = 5 MiB).",
-          "default": ""
+          "x-kubernetes-int-or-string": true
         },
         "allowHTTP": {
           "type": "boolean",
