@@ -1,8 +1,8 @@
-# Krateo COMPONENT release workflow — helm-render-service variant. Single-arch
-# (linux/amd64) on purpose: mirrors the fast-CI precedent — no QEMU, no arm64
-# emulation, minutes instead of tens of minutes. The bare-semver tag pattern is
-# the house convention shared with release-oci.yaml, so ONE tag push publishes
-# both the container image (here) and the OCI helm chart (release-oci).
+# Krateo COMPONENT release workflow — helm-render-service variant. Multi-arch
+# (linux/amd64,linux/arm64) via QEMU + Buildx, so the published image runs on both
+# amd64 clusters and arm64 (e.g. Apple-silicon kind/dev). The bare-semver tag
+# pattern is the house convention shared with release-oci.yaml, so ONE tag push
+# publishes both the container image (here) and the OCI helm chart (release-oci).
 name: release-image
 
 on:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   build:
-    name: Build & push image (linux/amd64)
+    name: Build & push image (multi-platform)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,13 +36,16 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push (linux/amd64)
+      - name: Build and push (linux/amd64, linux/arm64)
         uses: docker/build-push-action@v7
         with:
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
