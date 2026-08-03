@@ -16,10 +16,16 @@
       "title": "Image",
       "additionalProperties": false,
       "properties": {
+        "registry": {
+          "type": "string",
+          "title": "Image registry",
+          "description": "Registry host; overridden by global.imageRegistry when set.",
+          "default": "ghcr.io"
+        },
         "repository": {
           "type": "string",
           "title": "Image repository",
-          "default": "ghcr.io/braghettos/krateo-helm-render-service"
+          "default": "braghettos/krateo-helm-render-service"
         },
         "pullPolicy": {
           "type": "string",
@@ -180,7 +186,15 @@
     "global": {
       "type": "object",
       "title": "Global values",
-      "description": "Helm global values (injected when used as a subchart)."
+      "description": "Helm global values (injected when used as a subchart).",
+      "properties": {
+        "imageRegistry": {
+          "type": "string",
+          "title": "Global image registry",
+          "description": "Overrides the registry host of all images (repository paths preserved) for mirror/air-gapped installs.",
+          "default": ""
+        }
+      }
     }
   }
 }
