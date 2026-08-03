@@ -1,4 +1,4 @@
-module github.com/braghettos/helm-render-service
+module github.com/krateo-platformops/helm-render-service
 
 go 1.26.0
 

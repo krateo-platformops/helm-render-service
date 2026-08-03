@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/braghettos/helm-render-service/internal/render"
-	"github.com/braghettos/helm-render-service/internal/server"
+	"github.com/krateo-platformops/helm-render-service/internal/render"
+	"github.com/krateo-platformops/helm-render-service/internal/server"
 )
 
 // ---- helpers ---------------------------------------------------------------

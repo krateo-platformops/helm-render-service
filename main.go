@@ -17,7 +17,7 @@ import (
 
 	"helm.sh/helm/v3/pkg/chartutil"
 
-	"github.com/braghettos/helm-render-service/internal/server"
+	"github.com/krateo-platformops/helm-render-service/internal/server"
 )
 
 const defaultKubeVersion = "v1.33.0"

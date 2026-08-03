@@ -25,8 +25,8 @@ import (
 
 	"helm.sh/helm/v3/pkg/chartutil"
 
-	"github.com/braghettos/helm-render-service/internal/diff"
-	"github.com/braghettos/helm-render-service/internal/render"
+	"github.com/krateo-platformops/helm-render-service/internal/diff"
+	"github.com/krateo-platformops/helm-render-service/internal/render"
 )
 
 const (

@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/braghettos/helm-render-service/internal/render"
+	"github.com/krateo-platformops/helm-render-service/internal/render"
 	"sigs.k8s.io/yaml"
 )
 

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/braghettos/helm-render-service/internal/render"
+	"github.com/krateo-platformops/helm-render-service/internal/render"
 )
 
 func manifest(kind, name, yamlDoc string) render.Manifest {
