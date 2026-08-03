@@ -98,7 +98,7 @@ curl -s localhost:8080/render -X POST -H 'Content-Type: application/json' -d '{
 
 # OCI chart
 curl -s localhost:8080/render -X POST -H 'Content-Type: application/json' -d '{
-  "chart": {"url": "oci://ghcr.io/braghettos/krateo-frontend-chart", "version": "1.3.5"},
+  "chart": {"url": "oci://ghcr.io/krateo-platformops/charts/frontend", "version": "1.3.5"},
   "values": {}
 }'
 
@@ -185,9 +185,9 @@ Returns `200 ok`.
 
 The repo ships its own release pipelines — **one bare-semver tag push
 publishes both** the container image
-(`.github/workflows/release-image.yaml` → `ghcr.io/braghettos/helm-render-service:<tag>`,
+(`.github/workflows/release-image.yaml` → `ghcr.io/krateo-platformops/helm-render-service:<tag>`,
 linux/amd64) and the helm chart
-(`.github/workflows/release-oci.yaml` → `oci://ghcr.io/braghettos/krateo/helm-render-service:<tag>`,
+(`.github/workflows/release-oci.yaml` → `oci://ghcr.io/krateo-platformops/charts/helm-render-service:<tag>`,
 `CHART_VERSION`/`APP_VERSION` placeholders in `chart/Chart.yaml` are resolved
 to the tag at package time).
 
@@ -197,7 +197,7 @@ git tag 0.1.0 && git push origin 0.1.0
 
 # 2. Install the chart (creates Deployment + ClusterIP Service :8080;
 #    --set snowplowEndpoint.enabled=true also creates the snowplow Endpoint Secret)
-helm install helm-render-service oci://ghcr.io/braghettos/krateo/helm-render-service \
+helm install helm-render-service oci://ghcr.io/krateo-platformops/charts/helm-render-service \
   --version 0.1.0 --namespace krateo-system --set snowplowEndpoint.enabled=true
 
 # 3. Verify from inside the cluster
@@ -245,7 +245,7 @@ spec:
         - 'Content-Type: application/json'
       payload: |
         {
-          "chart": {"url": "oci://ghcr.io/braghettos/krateo-frontend-chart", "version": "1.3.5"},
+          "chart": {"url": "oci://ghcr.io/krateo-platformops/charts/frontend", "version": "1.3.5"},
           "values": {},
           "releaseName": "preview",
           "namespace": "krateo-system"
@@ -261,7 +261,7 @@ spec:
 make build    # bin/helm-render-service
 make test     # go test ./...
 make vet      # go vet ./...
-make docker   # ghcr.io/braghettos/helm-render-service:dev
+make docker   # ghcr.io/krateo-platformops/helm-render-service:dev
 make run      # go run . (listens on :8080)
 ```
 

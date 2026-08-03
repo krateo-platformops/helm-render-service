@@ -9,6 +9,6 @@ type: application
 version: CHART_VERSION
 appVersion: APP_VERSION
 
-home: https://github.com/braghettos/krateo-helm-render-service
+home: https://github.com/krateo-platformops/helm-render-service
 sources:
-  - https://github.com/braghettos/krateo-helm-render-service
+  - https://github.com/krateo-platformops/helm-render-service
