@@ -9,7 +9,7 @@ replicaCount: 1
 
 image:
   registry: ghcr.io
-  repository: braghettos/krateo-helm-render-service
+  repository: krateo-platformops/helm-render-service
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""

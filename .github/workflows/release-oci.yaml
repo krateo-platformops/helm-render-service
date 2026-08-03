@@ -40,7 +40,7 @@ permissions:
   packages: write
 
 env:
-  OCI_REPO: oci://ghcr.io/braghettos/krateo
+  OCI_REPO: oci://ghcr.io/krateo-platformops/charts
 
 jobs:
   package-and-push:
@@ -58,7 +58,7 @@ jobs:
           segs="$(printf '%s' "$path" | tr '/' '\n' | grep -c .)"
           if [ "$segs" -lt 3 ]; then
             echo "::error::OCI_REPO='${OCI_REPO}' is the registry root (${segs} path segments)."
-            echo "::error::Use a chart-namespaced repo, e.g. oci://ghcr.io/braghettos/krateo."
+            echo "::error::Use a chart-namespaced repo, e.g. oci://ghcr.io/krateo-platformops/charts."
             exit 1
           fi
 

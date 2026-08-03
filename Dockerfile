@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # needs exactly one file. Probes are HTTP (/healthz); no HEALTHCHECK binary
 # exists or is needed.
 FROM gcr.io/distroless/static-debian12:nonroot
-LABEL org.opencontainers.image.source="https://github.com/braghettos/helm-render-service" \
+LABEL org.opencontainers.image.source="https://github.com/krateo-platformops/helm-render-service" \
       org.opencontainers.image.description="Stateless helm-template render/dry-run HTTP service (client-only helm SDK, no cluster access)" \
       org.opencontainers.image.licenses="Apache-2.0"
 COPY --from=build /out/helm-render-service /helm-render-service
