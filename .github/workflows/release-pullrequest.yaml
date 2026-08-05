@@ -1,0 +1,27 @@
+name: release-pullrequest
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# helm-render-service is a FLAT Go repo (go.mod + Dockerfile at the root). PR CI now uses the
+# shared reusables (krateo-platformops/.github) like the other krateo-* components: a validate-only
+# multi-platform image build (component-image-build, push:false) + Go checks (component-go-checks).
+# Replaces the bespoke ci.yaml (inline go test/vet + inline docker build).
+jobs:
+  build:
+    uses: krateo-platformops/.github/.github/workflows/component-image-build.yaml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      modules: '[{"mod":"helm-render-service","context":".","dockerfile":"Dockerfile"}]'
+      push: false
+
+  checks:
+    uses: krateo-platformops/.github/.github/workflows/component-go-checks.yaml@main
+    with:
+      module: .
+      test_args: -race -coverprofile=coverage.txt -covermode=atomic ./...
+    secrets: inherit
