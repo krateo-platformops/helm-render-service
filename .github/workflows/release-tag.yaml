@@ -1,0 +1,17 @@
+name: release-tag
+
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+# Publishes the multi-platform image via the shared reusable build (one source of truth, no
+# per-repo drift). Replaces the bespoke release-image.yaml. helm-render-service owns no CRDs, so
+# there is no crds-subchart publish step.
+jobs:
+  build:
+    uses: krateo-platformops/.github/.github/workflows/component-image-build.yaml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      modules: '[{"mod":"helm-render-service","context":".","dockerfile":"Dockerfile"}]'
