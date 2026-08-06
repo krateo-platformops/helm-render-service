@@ -69,13 +69,23 @@ spec:
               value: "true"
             {{- end }}
           {{- end }}
+          # Kubernetes probe defaults (timeoutSeconds: 1, failureThreshold: 3) kill
+          # HEALTHY pods under CPU contention: a loaded node delays /healthz past 1s
+          # and three misses restart the pod, and the restart storm worsens the
+          # contention. Liveness is lenient (~60s of failures before a restart —
+          # only truly dead processes get killed); readiness still removes the
+          # endpoint promptly, but load alone must not flap it.
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
+            timeoutSeconds: 5
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /healthz
               port: http
+            timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
