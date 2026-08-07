@@ -1,5 +1,5 @@
 BIN    := helm-render-service
-IMAGE  ?= ghcr.io/braghettos/helm-render-service
+IMAGE  ?= ghcr.io/krateo-platformops/helm-render-service
 TAG    ?= dev
 
 .PHONY: build test vet fmt tidy docker run clean

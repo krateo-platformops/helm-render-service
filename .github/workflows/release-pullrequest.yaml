@@ -25,3 +25,6 @@ jobs:
       module: .
       test_args: -race -coverprofile=coverage.txt -covermode=atomic ./...
     secrets: inherit
+
+  lint-docs:
+    uses: krateo-platformops/.github/.github/workflows/lint-docs.yaml@main
