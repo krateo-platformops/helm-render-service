@@ -1,0 +1,17 @@
+# helm-render-service — LLM doc index (pinned: 0.3.0)
+# One line per file; regenerate the pin on release. Read files at the tag that matches
+# the running build (chart version == image tag == the repo tag; no v prefix).
+docs/index.md: the map — what helm-render-service is + links to the whole bundle
+docs/overview.md: what it does and how it works — client-only render pipeline, four chart sources, guardrails, zero-cluster-access posture
+docs/usage.md: install via the Krateo installer (portal feature) or direct helm install oci://…; snowplow Endpoint wiring; local run
+docs/configuration.md: the whole config surface — HRS_* env vars + every chart value
+docs/api.md: the HTTP contract — POST /render, POST /diff (valuesSchemaDiff), GET /healthz, the 200-error model
+docs/examples.md: index of the runnable examples
+docs/release.md: how a release ships — one plain-semver tag drives image + chart
+docs/log.md: curated history
+examples/render-inline/README.md: POST /render with an inline chart tree (builder draft path)
+examples/render-inline/request.json: the request body — curl --data @request.json
+examples/upgrade-impact-diff/README.md: POST /diff between two inline chart versions incl. valuesSchemaDiff
+examples/upgrade-impact-diff/request.json: the request body — curl --data @request.json
+examples/snowplow-chart-preview/README.md: the snowplow RESTAction wiring pattern (endpointRef → /render)
+examples/snowplow-chart-preview/manifest.yaml: the manifest — kubectl apply -f

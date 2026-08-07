@@ -1,0 +1,28 @@
+# A snowplow RESTAction that POSTs to helm-render-service through the
+# `helm-render-endpoint` Endpoint Secret the chart ships (snowplowEndpoint.enabled,
+# default true). Adapt the chart URL/version and namespaces to your deploy.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: chart-preview
+  namespace: krateo-system
+spec:
+  api:
+    - name: render
+      endpointRef:
+        name: helm-render-endpoint
+        namespace: krateo-system
+      path: /render
+      verb: POST
+      headers:
+        - 'Content-Type: application/json'
+      payload: |
+        {
+          "chart": {"url": "oci://ghcr.io/krateo-platformops/charts/frontend", "version": "1.3.5"},
+          "values": {},
+          "releaseName": "preview",
+          "namespace": "krateo-system"
+        }
+  # /render answers 200 with either {objects: [...]} or {error: "..."} —
+  # surface both so a failed render shows up as widget data, not a step error.
+  filter: "{objects: [.render.objects[]? | {kind, name, namespace}], error: (.render.error // empty)}"

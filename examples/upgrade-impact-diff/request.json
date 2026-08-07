@@ -1,0 +1,51 @@
+{
+  "base": {
+    "files": [
+      {
+        "path": "Chart.yaml",
+        "content": "apiVersion: v2\nname: demo\nversion: 0.1.0\n"
+      },
+      {
+        "path": "values.yaml",
+        "content": "greeting: hello\n"
+      },
+      {
+        "path": "values.schema.json",
+        "content": "{\"type\": \"object\", \"properties\": {\"greeting\": {\"type\": \"string\", \"default\": \"hello\"}}}"
+      },
+      {
+        "path": "templates/cm.yaml",
+        "content": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-cm\ndata:\n  greeting: {{ .Values.greeting }}\n"
+      }
+    ]
+  },
+  "head": {
+    "files": [
+      {
+        "path": "Chart.yaml",
+        "content": "apiVersion: v2\nname: demo\nversion: 0.2.0\n"
+      },
+      {
+        "path": "values.yaml",
+        "content": "greeting: hello\nreplicas: 1\n"
+      },
+      {
+        "path": "values.schema.json",
+        "content": "{\"type\": \"object\", \"required\": [\"replicas\"], \"properties\": {\"greeting\": {\"type\": \"string\", \"default\": \"ciao\"}, \"replicas\": {\"type\": \"integer\", \"default\": 1}}}"
+      },
+      {
+        "path": "templates/cm.yaml",
+        "content": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-cm\ndata:\n  greeting: {{ .Values.greeting }}\n  replicas: {{ .Values.replicas | quote }}\n"
+      },
+      {
+        "path": "templates/svc.yaml",
+        "content": "apiVersion: v1\nkind: Service\nmetadata:\n  name: {{ .Release.Name }}-svc\nspec:\n  ports:\n    - port: 8080\n"
+      }
+    ]
+  },
+  "values": {
+    "replicas": 2
+  },
+  "releaseName": "preview",
+  "namespace": "default"
+}

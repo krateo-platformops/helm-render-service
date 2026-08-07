@@ -1,0 +1,12 @@
+{
+  "rawTemplates": {
+    "Chart.yaml": "apiVersion: v2\nname: draft\nversion: 0.1.0\n",
+    "values.yaml": "who: world\n",
+    "templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-hello\ndata:\n  greeting: hello {{ .Values.who }}\n"
+  },
+  "values": {
+    "who": "krateo"
+  },
+  "releaseName": "preview",
+  "namespace": "default"
+}
