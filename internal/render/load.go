@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	neturl "net/url"
 	"path"
 	"strings"
+	"time"
 
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -71,7 +74,9 @@ type Loader struct {
 	// Defaults to 20 MiB.
 	MaxChartBytes int64
 	// AllowHTTP permits plain http:// chart URLs (tests / trusted dev
-	// environments only). file:// and local paths are always rejected.
+	// environments only). file:// and local paths are always rejected. It also
+	// opts OUT of the SSRF guard (private/loopback/link-local targets become
+	// reachable) — same "trusted" boundary — so it must stay false in production.
 	AllowHTTP bool
 }
 
@@ -215,6 +220,17 @@ func (l *Loader) loadTgzURL(ctx context.Context, url string) (*chart.Chart, erro
 }
 
 func (l *Loader) fetch(ctx context.Context, url string) ([]byte, error) {
+	// SSRF guard (CWE-918 / CodeQL go/request-forgery): the chart URL is
+	// caller-supplied. Reject an IP-literal host in a private/loopback/link-local
+	// range up front; hostnames that RESOLVE to such an address are caught at
+	// dial time by ssrfGuardedClient (which also defeats DNS rebinding). The
+	// guard is production-only: AllowHTTP (tests / trusted dev) targets loopback
+	// httptest servers, so it opts out — same trust boundary as permitting http://.
+	if !l.AllowHTTP {
+		if err := validateFetchURL(url); err != nil {
+			return nil, err
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request for %s: %w", url, err)
@@ -241,7 +257,101 @@ func (l *Loader) httpClient() *http.Client {
 	if l.HTTPClient != nil {
 		return l.HTTPClient
 	}
-	return http.DefaultClient
+	if l.AllowHTTP {
+		// Trusted dev/test mode: plain client, no SSRF dial guard (loopback
+		// httptest targets are expected here).
+		return http.DefaultClient
+	}
+	return ssrfGuardedClient
+}
+
+// --- SSRF guard -----------------------------------------------------------
+//
+// helm-render-service fetches charts from a CALLER-SUPPLIED URL, which makes the
+// download a Server-Side Request Forgery sink: a caller could aim it at the
+// cluster's internal services or the cloud metadata endpoint (169.254.169.254).
+// Two layers defend it:
+//   1. validateFetchURL rejects an IP-literal host in a blocked range up front.
+//   2. ssrfGuardedClient blocks the CONNECTION at dial time to any address that
+//      resolves into a blocked range, and dials the exact IP it checked — so a
+//      hostname pointing at a private IP, and DNS rebinding (which a URL-string
+//      allowlist cannot stop), are both refused.
+
+// isBlockedIP reports whether ip is one an SSRF would target: loopback (127/8,
+// ::1), RFC1918 / ULA private (10/8, 172.16/12, 192.168/16, fc00::/7),
+// link-local (169.254/16 incl. the metadata IP, fe80::/10), unspecified, or
+// multicast.
+func isBlockedIP(ip net.IP) bool {
+	return ip == nil ||
+		ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified()
+}
+
+// validateFetchURL rejects a URL whose host is an IP literal in a blocked range.
+func validateFetchURL(rawURL string) error {
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("parse url %q: %w", rawURL, err)
+	}
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("url %q has no host", rawURL)
+	}
+	if ip := net.ParseIP(host); ip != nil && isBlockedIP(ip) {
+		return fmt.Errorf("refusing to fetch %q: host %s is a private/loopback/link-local address (SSRF guard)", rawURL, host)
+	}
+	return nil
+}
+
+// ssrfGuardedClient is the production HTTP client for chart/index downloads:
+// standard behaviour plus the dial-time private-address block. Request-level
+// timeouts come from the caller's context, as before.
+var ssrfGuardedClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:           guardedDialContext(&net.Dialer{KeepAlive: 30 * time.Second}),
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	},
+}
+
+// guardedDialContext resolves the host, refuses the dial if ANY resolved IP is
+// blocked, then dials the exact IP it checked (no re-resolution → no rebinding).
+func guardedDialContext(d *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, err
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no addresses for %q", host)
+		}
+		for _, ipa := range ips {
+			if isBlockedIP(ipa.IP) {
+				return nil, fmt.Errorf("refusing to connect to %s: %s is a private/loopback/link-local address (SSRF guard)", host, ipa.IP)
+			}
+		}
+		var lastErr error
+		for _, ipa := range ips {
+			conn, derr := d.DialContext(ctx, network, net.JoinHostPort(ipa.IP.String(), port))
+			if derr == nil {
+				return conn, nil
+			}
+			lastErr = derr
+		}
+		return nil, lastErr
+	}
 }
 
 func (l *Loader) oci() OCIPuller {
