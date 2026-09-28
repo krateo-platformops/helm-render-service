@@ -674,3 +674,80 @@ func TestDiffBrokenHeadSurfacesInErrorWithPrefix(t *testing.T) {
 		t.Errorf("error %q does not identify the failing side", resp.Error)
 	}
 }
+
+// ---- lookup stubs (preview) -------------------------------------------------
+
+// gatedRawTemplates holds a Deployment back until a Repository reports
+// .status.default_branch — the shape of a Krateo composer gate.
+func gatedRawTemplates() map[string]string {
+	return map[string]string{
+		"Chart.yaml": "apiVersion: v2\nname: gated\nversion: 0.1.0\n",
+		"templates/deployment.yaml": `{{- $gate := true -}}
+{{- $dep0 := lookup "github.krateo.io/v1alpha1" "Repository" $.Release.Namespace (printf "%s-repo" $.Release.Name) -}}
+{{- if not (and $dep0 (dig "status" "default_branch" "" $dep0)) -}}{{- $gate = false -}}{{- end -}}
+{{- if $gate }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+{{- end }}
+`,
+	}
+}
+
+func TestRenderLookupStubsOpenAGateAndAreReported(t *testing.T) {
+	h := newHandler(t)
+	rec := post(t, h, "/render", map[string]interface{}{
+		"rawTemplates": gatedRawTemplates(),
+		"releaseName":  "r",
+		"namespace":    "ns",
+		"lookupStubs": []map[string]interface{}{{
+			"apiVersion": "github.krateo.io/v1alpha1",
+			"kind":       "Repository",
+			"object":     map[string]interface{}{"status": map[string]interface{}{"default_branch": "main"}},
+		}},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Objects []render.Manifest   `json:"objects"`
+		Lookups []render.LookupCall `json:"lookups"`
+		Error   string              `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error != "" || len(body.Objects) != 1 || body.Objects[0].Kind != "Deployment" {
+		t.Fatalf("the stub opens the gate: %s", rec.Body.String())
+	}
+	want := []render.LookupCall{{APIVersion: "github.krateo.io/v1alpha1", Kind: "Repository", Namespace: "ns", Name: "r-repo", Stubbed: true}}
+	if fmt.Sprint(body.Lookups) != fmt.Sprint(want) {
+		t.Fatalf("lookups: got %+v want %+v", body.Lookups, want)
+	}
+}
+
+func TestRenderWithoutStubsKeepsTheContract(t *testing.T) {
+	h := newHandler(t)
+	rec := post(t, h, "/render", map[string]interface{}{"rawTemplates": gatedRawTemplates(), "releaseName": "r"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"lookups"`) {
+		t.Fatalf("no stubs, no lookups key: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"objects":[]`) {
+		t.Fatalf("the gate stays closed without stubs: %s", rec.Body.String())
+	}
+}
+
+func TestRenderRejectsAStubWithoutKind(t *testing.T) {
+	h := newHandler(t)
+	rec := post(t, h, "/render", map[string]interface{}{
+		"rawTemplates": tinyChart(),
+		"lookupStubs":  []map[string]interface{}{{"apiVersion": "v1"}},
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("a stub without kind is a client error, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

@@ -111,6 +111,9 @@ type renderRequest struct {
 	Values      map[string]interface{} `json:"values"`
 	ReleaseName string                 `json:"releaseName,omitempty"`
 	Namespace   string                 `json:"namespace,omitempty"`
+	// LookupStubs answer the chart's `lookup` calls for a PREVIEW (see
+	// render.LookupStub). Absent or empty: `helm template` semantics.
+	LookupStubs []render.LookupStub `json:"lookupStubs,omitempty"`
 }
 
 // renderSuccess is the 200 body of a successful POST /render.
@@ -118,6 +121,9 @@ type renderSuccess struct {
 	Objects      []render.Manifest `json:"objects"`
 	ValuesSchema json.RawMessage   `json:"valuesSchema,omitempty"`
 	Notes        *string           `json:"notes,omitempty"`
+	// Lookups is present only when the request carried lookupStubs: every
+	// distinct lookup the chart made, and whether a stub answered it.
+	Lookups []render.LookupCall `json:"lookups,omitempty"`
 }
 
 // chartSpec merges the three accepted chart-source spellings (chart{...},
@@ -176,11 +182,15 @@ func (s *server) handleRender(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if err := render.ValidateLookupStubs(req.LookupStubs); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.RenderTimeout)
 	defer cancel()
 
-	result, err := s.renderOne(ctx, spec, req.Values, req.ReleaseName, req.Namespace)
+	result, err := s.renderOne(ctx, spec, req.Values, req.ReleaseName, req.Namespace, req.LookupStubs)
 	if err != nil {
 		// A chart that fails to fetch, load or render is data, not a server
 		// error: 200 with the error string so api-step callers (snowplow)
@@ -192,6 +202,7 @@ func (s *server) handleRender(w http.ResponseWriter, r *http.Request) {
 		Objects:      result.Manifests,
 		ValuesSchema: result.ValuesSchema,
 		Notes:        result.Notes,
+		Lookups:      result.Lookups,
 	})
 }
 
@@ -227,12 +238,12 @@ func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.RenderTimeout)
 	defer cancel()
 
-	baseRes, err := s.renderOne(ctx, req.Base, req.Values, req.ReleaseName, req.Namespace)
+	baseRes, err := s.renderOne(ctx, req.Base, req.Values, req.ReleaseName, req.Namespace, nil)
 	if err != nil {
 		writeJSON(w, http.StatusOK, errorResponse{Error: s.renderErrorText(err, "base: ")})
 		return
 	}
-	headRes, err := s.renderOne(ctx, req.Head, req.Values, req.ReleaseName, req.Namespace)
+	headRes, err := s.renderOne(ctx, req.Head, req.Values, req.ReleaseName, req.Namespace, nil)
 	if err != nil {
 		writeJSON(w, http.StatusOK, errorResponse{Error: s.renderErrorText(err, "head: ")})
 		return
@@ -240,7 +251,7 @@ func (s *server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, diff.Compute(baseRes, headRes))
 }
 
-func (s *server) renderOne(ctx context.Context, spec render.ChartSpec, values map[string]interface{}, releaseName, namespace string) (*render.Result, error) {
+func (s *server) renderOne(ctx context.Context, spec render.ChartSpec, values map[string]interface{}, releaseName, namespace string, stubs []render.LookupStub) (*render.Result, error) {
 	ch, err := s.loader.Load(ctx, spec)
 	if err != nil {
 		return nil, err
@@ -250,6 +261,7 @@ func (s *server) renderOne(ctx context.Context, spec render.ChartSpec, values ma
 		Namespace:      namespace,
 		KubeVersion:    s.cfg.KubeVersion,
 		MaxOutputBytes: s.cfg.MaxOutputBytes,
+		LookupStubs:    stubs,
 	})
 }
 

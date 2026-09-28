@@ -7,10 +7,12 @@
 package render
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +20,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/engine"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"sigs.k8s.io/yaml"
@@ -33,6 +36,9 @@ type Options struct {
 	// MaxOutputBytes caps the total rendered manifest size (manifests +
 	// hooks). 0 means unlimited.
 	MaxOutputBytes int64
+	// LookupStubs, when non-empty, answer the template `lookup` function
+	// (see LookupStub). Empty keeps `helm template` semantics exactly.
+	LookupStubs []LookupStub
 }
 
 // Manifest is one rendered Kubernetes object.
@@ -50,6 +56,9 @@ type Result struct {
 	Manifests    []Manifest      `json:"manifests"`
 	ValuesSchema json.RawMessage `json:"valuesSchema"` // null when the chart has no values.schema.json
 	Notes        *string         `json:"notes"`        // null when the chart has no NOTES.txt
+	// Lookups lists every distinct lookup a stubbed render made; nil for a
+	// render without stubs.
+	Lookups []LookupCall `json:"lookups,omitempty"`
 }
 
 // Render renders ch against values with `helm template` semantics
@@ -65,6 +74,9 @@ func Render(ctx context.Context, ch *chart.Chart, values map[string]interface{},
 	}
 	if values == nil {
 		values = map[string]interface{}{}
+	}
+	if len(opts.LookupStubs) > 0 {
+		return renderStubbed(ctx, ch, values, opts)
 	}
 
 	cfg := new(action.Configuration)
@@ -108,6 +120,99 @@ func Render(ctx context.Context, ch *chart.Chart, values map[string]interface{},
 		return buildResult(ch, o.rel), nil
 	}
 }
+
+// renderStubbed renders like Render, with `lookup` answered from the stubs.
+// helm's action.Install offers no way to hand the engine a lookup provider
+// short of a live cluster, so this runs the steps a client-only install runs —
+// dependencies, capabilities, schema-validated values, the engine, NOTES,
+// manifest sort, CRDs first — around engine.RenderWithClientProvider.
+// TestStubbedRenderMatchesInstall pins the two paths to the same output.
+func renderStubbed(ctx context.Context, ch *chart.Chart, values map[string]interface{}, opts Options) (*Result, error) {
+	provider := newStubProvider(opts.LookupStubs)
+
+	type outcome struct {
+		rel *release.Release
+		err error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- outcome{nil, fmt.Errorf("render panicked: %v", r)}
+			}
+		}()
+		rel, err := stubbedRelease(ch, values, opts, provider)
+		done <- outcome{rel, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case o := <-done:
+		if o.err != nil {
+			return nil, o.err
+		}
+		if err := checkOutputSize(o.rel, opts.MaxOutputBytes); err != nil {
+			return nil, err
+		}
+		res := buildResult(ch, o.rel)
+		res.Lookups = provider.lookups()
+		return res, nil
+	}
+}
+
+func stubbedRelease(ch *chart.Chart, values map[string]interface{}, opts Options, provider engine.ClientProvider) (*release.Release, error) {
+	if err := chartutil.ProcessDependenciesWithMerge(ch, values); err != nil {
+		return nil, err
+	}
+	caps := chartutil.DefaultCapabilities.Copy()
+	if opts.KubeVersion != nil {
+		caps.KubeVersion = *opts.KubeVersion
+	}
+	if ch.Metadata.KubeVersion != "" && !chartutil.IsCompatibleRange(ch.Metadata.KubeVersion, caps.KubeVersion.String()) {
+		return nil, fmt.Errorf("chart requires kubeVersion: %s which is incompatible with Kubernetes %s", ch.Metadata.KubeVersion, caps.KubeVersion.String())
+	}
+	renderValues, err := chartutil.ToRenderValuesWithSchemaValidation(ch, values, chartutil.ReleaseOptions{
+		Name:      opts.ReleaseName,
+		Namespace: opts.Namespace,
+		Revision:  1,
+		IsInstall: true,
+	}, caps, false)
+	if err != nil {
+		return nil, err
+	}
+	files, err := engine.RenderWithClientProvider(ch, renderValues, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTES.txt renders like a template but is no manifest: only the top-level
+	// chart's is kept (SubNotes off), as helm does.
+	var notes string
+	for name, content := range files {
+		if strings.HasSuffix(name, notesSuffix) {
+			if name == path.Join(ch.Name(), "templates", notesSuffix) {
+				notes = content
+			}
+			delete(files, name)
+		}
+	}
+
+	hooks, manifests, err := releaseutil.SortManifests(files, nil, releaseutil.InstallOrder)
+	if err != nil {
+		return nil, err
+	}
+	var doc bytes.Buffer
+	for _, crd := range ch.CRDObjects() {
+		fmt.Fprintf(&doc, "---\n# Source: %s\n%s\n", crd.Filename, string(crd.File.Data))
+	}
+	for _, m := range manifests {
+		fmt.Fprintf(&doc, "---\n# Source: %s\n%s\n", m.Name, m.Content)
+	}
+	return &release.Release{Manifest: doc.String(), Hooks: hooks, Info: &release.Info{Notes: notes}}, nil
+}
+
+const notesSuffix = "NOTES.txt"
 
 // checkOutputSize enforces the rendered-output guardrail (manifests plus
 // hook manifests).

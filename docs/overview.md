@@ -22,7 +22,9 @@ portal path any cluster credentials.
   anywhere in the codebase; rendering uses the helm Go SDK's `action.Install`
   with `DryRun` + `DryRunOption: "client"` + `ClientOnly` + `Replace`
   (`internal/render/render.go`), exactly like `helm template`. The template
-  `lookup` function returns empty results. The chart pairs this with
+  `lookup` function returns empty results — or, when a request carries
+  `lookupStubs`, the caller's stand-in objects (`internal/render/stub.go`),
+  still in-process and never applied. The chart pairs this with
   `automountServiceAccountToken: false` — the pod never even holds a token.
 - **No external binaries.** Everything is in-process SDK; the runtime image is
   distroless static (`nonroot`, numeric UID 65532, read-only root filesystem,

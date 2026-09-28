@@ -32,7 +32,30 @@ Render a chart against values. Exactly **one** chart source per request:
 `file://` URLs and local paths are always rejected (`400`); plain `http://`
 only with `HRS_ALLOW_HTTP=true`. Optional fields: `values` (overlay object),
 `releaseName` (default `"render"`, validated as a release name), `namespace`
-(default `"default"`).
+(default `"default"`), `lookupStubs` (below).
+
+**`lookupStubs` — preview a chart past its `lookup` gates.** A client-only
+render answers every template `lookup` with an empty result, so anything a
+chart withholds until another object exists (a Krateo composer gate) never
+renders. `lookupStubs` supplies the objects those lookups should see, for this
+one request; nothing is applied or stored.
+
+```jsonc
+"lookupStubs": [
+  { "apiVersion": "github.krateo.io/v1alpha1", "kind": "Repository",
+    "name": "",        // optional: empty answers every name (gate names are Helm expressions)
+    "namespace": "",   // optional: empty answers every namespace
+    "object": { "status": { "default_branch": "main" } } }
+]
+```
+
+A stub matches by `apiVersion` + `kind`; an exact `name` beats a wildcard. The
+object returned is a copy of `object` with `apiVersion`, `kind`,
+`metadata.name` and `metadata.namespace` set to what was looked up. A list
+lookup (`name` `""`) returns every matching stub. A stub is an object, not a
+bypass: the chart's own condition still decides whether its gate opens. At
+most 256 stubs; each needs `apiVersion` and `kind` (else `400`). Without
+`lookupStubs` the render is byte-for-byte what it was.
 
 ```jsonc
 // Mode 1: remote chart
@@ -70,7 +93,11 @@ only with `HRS_ALLOW_HTTP=true`. Optional fields: `values` (overlay object),
        "yaml": "# Source: ...\napiVersion: apps/v1\n..."}
     ],
     "valuesSchema": { /* the chart's values.schema.json */ },  // omitted when the chart ships none
-    "notes": "rendered NOTES.txt"                              // omitted when absent
+    "notes": "rendered NOTES.txt",                             // omitted when absent
+    "lookups": [                                               // only when the request sent lookupStubs
+      {"apiVersion": "github.krateo.io/v1alpha1", "kind": "Repository",
+       "namespace": "default", "name": "x-repo", "stubbed": true}   // every distinct lookup, first-call order
+    ]
   }
   ```
 
