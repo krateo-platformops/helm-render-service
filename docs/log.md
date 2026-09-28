@@ -11,6 +11,19 @@ timestamp: 2026-08-07T00:00:00Z
 
 Curated history, newest first.
 
+## 2026-09-28 — `lookupStubs`: preview past `lookup` gates
+
+The Blueprint Composer's preview rendered nothing behind a generated gate,
+because a client-only render answers every `lookup` empty — so a chart whose
+Deployment waits on a ConfigMap previewed as the ConfigMap alone, and a broken
+Deployment (an empty `image:`) reached the cluster unseen. `/render` now takes
+`lookupStubs` and reports `lookups`. helm's `action.Install` has no seam for a
+lookup provider short of a live cluster, so a stubbed request renders through
+`engine.RenderWithClientProvider` with the client-only install's own steps
+around it; `TestStubbedRenderMatchesInstall` pins the two paths to the same
+output. Decided as a service-side stub rather than a chart value, so no
+production install can be rendered with its gates forced open.
+
 ## 2026-08-07 — adopted the Krateo Documentation Standard
 
 This bundle: `docs/` + `examples/` + thin README. The old single-README docs
