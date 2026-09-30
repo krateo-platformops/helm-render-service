@@ -2,7 +2,7 @@
 type: Usage
 title: helm-render-service — usage
 description: Install via the Krateo installer (portal feature) or direct helm install oci://…; the snowplow Endpoint wiring; verifying in-cluster; running locally.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [install, helm, installer, snowplow]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -11,7 +11,7 @@ timestamp: 2026-08-07T00:00:00Z
 
 ## Via the Krateo installer (the normal path)
 
-The Krateo installer pins this chart as the component `krateo-helm-render-service`
+The Krateo installer pins this chart as the component `blueprint-render-service`
 (platform tier, **portal** feature) — a stock deploy with the portal enabled
 installs it into the Krateo namespace with the chart defaults, including the
 snowplow Endpoint Secret (`snowplowEndpoint.enabled` defaults to `true`, so the
@@ -20,23 +20,23 @@ component needs no extra `componentValues`). Nothing to do by hand.
 ## Standalone `helm install`
 
 ```sh
-helm install krateo-helm-render-service \
-  oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service \
+helm install blueprint-render-service \
+  oci://ghcr.io/krateo-platformops/charts/blueprint-render-service \
   --version 0.3.0 --namespace krateo-system
 ```
 
 This creates a Deployment and a ClusterIP Service on port `8080`, plus (by
 default) the snowplow Endpoint Secret. Use the release name
-`krateo-helm-render-service` as above: it matches the chart name, so the
-Service is named exactly `krateo-helm-render-service`. Any other release name
-`X` yields `X-krateo-helm-render-service` (the standard fullname helper) — and
+`blueprint-render-service` as above: it matches the chart name, so the
+Service is named exactly `blueprint-render-service`. Any other release name
+`X` yields `X-blueprint-render-service` (the standard fullname helper) — and
 the Endpoint Secret's `server-url` tracks whatever the real name is.
 
 Verify from inside the cluster:
 
 ```sh
 kubectl run curl --rm -it --image=curlimages/curl --restart=Never -n krateo-system -- \
-  curl -s http://krateo-helm-render-service.krateo-system.svc:8080/healthz
+  curl -s http://blueprint-render-service.krateo-system.svc:8080/healthz
 ```
 
 ## snowplow wiring
@@ -50,13 +50,13 @@ Bearer token snowplow forwards:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: helm-render-endpoint          # values.snowplowEndpoint.name
+  name: blueprint-render-endpoint     # values.snowplowEndpoint.name
   namespace: krateo-system
   annotations:
     "krateo.io/verbose": "true"
 type: Opaque
 stringData:
-  server-url: http://krateo-helm-render-service.krateo-system.svc:8080
+  server-url: http://blueprint-render-service.krateo-system.svc:8080
 ```
 
 A `RESTAction` api-step can then POST to `/render` or `/diff` — the full
@@ -71,7 +71,7 @@ Any HTTP client works — the contract is [api](./api.md), and
 ready-made request bodies:
 
 ```sh
-curl -s http://krateo-helm-render-service.krateo-system.svc:8080/render \
+curl -s http://blueprint-render-service.krateo-system.svc:8080/render \
   -X POST -H 'Content-Type: application/json' -d '{
   "chart": {"url": "oci://ghcr.io/krateo-platformops/charts/frontend", "version": "1.3.5"},
   "values": {}

@@ -2,7 +2,7 @@
 type: Example
 title: /diff — upgrade impact between two chart versions
 description: POST two inline chart versions to /diff and get added/removed/changed objects plus the field-level values-schema breakdown (valuesSchemaDiff).
-resource: http://krateo-helm-render-service.krateo-system.svc:8080/diff
+resource: http://blueprint-render-service.krateo-system.svc:8080/diff
 tags: [diff, upgrade-impact, values-schema]
 timestamp: 2026-08-07T00:00:00Z
 ---

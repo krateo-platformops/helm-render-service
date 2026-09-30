@@ -54,4 +54,4 @@ snowplowEndpoint:
   # RESTActions resolve (blueprint-render, upgrade-impact) is always needed. Deploying as a
   # Krateo Composition component thus needs no extra componentValues.
   enabled: true
-  name: helm-render-endpoint
+  name: blueprint-render-endpoint

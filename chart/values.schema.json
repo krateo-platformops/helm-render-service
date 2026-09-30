@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
-  "title": "krateo-helm-render-service",
+  "title": "blueprint-render-service",
   "description": "Stateless helm-template render/dry-run HTTP service \u2014 full-coverage schema.",
   "additionalProperties": false,
   "properties": {
@@ -179,7 +179,7 @@
         "name": {
           "type": "string",
           "title": "Secret name",
-          "default": "helm-render-endpoint"
+          "default": "blueprint-render-endpoint"
         }
       }
     },

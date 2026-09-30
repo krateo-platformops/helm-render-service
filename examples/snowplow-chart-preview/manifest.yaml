@@ -1,5 +1,5 @@
 # A snowplow RESTAction that POSTs to helm-render-service through the
-# `helm-render-endpoint` Endpoint Secret the chart ships (snowplowEndpoint.enabled,
+# `blueprint-render-endpoint` Endpoint Secret the chart ships (snowplowEndpoint.enabled,
 # default true). Adapt the chart URL/version and namespaces to your deploy.
 apiVersion: templates.krateo.io/v1
 kind: RESTAction
@@ -10,7 +10,7 @@ spec:
   api:
     - name: render
       endpointRef:
-        name: helm-render-endpoint
+        name: blueprint-render-endpoint
         namespace: krateo-system
       path: /render
       verb: POST

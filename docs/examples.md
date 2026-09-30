@@ -2,7 +2,7 @@
 type: ExampleIndex
 title: helm-render-service — examples
 description: Runnable examples under examples/ — two live-verifiable request bodies (/render, /diff) and the snowplow RESTAction wiring pattern.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [examples, render, diff, restaction]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -22,5 +22,5 @@ installer deploy.
   **and** the field-level `valuesSchemaDiff` breakdown.
 - [snowplow-chart-preview](../examples/snowplow-chart-preview/README.md) — the
   snowplow `RESTAction` that reaches `/render` through the chart's
-  `helm-render-endpoint` Secret, with the filter pattern that surfaces render
+  `blueprint-render-endpoint` Secret, with the filter pattern that surfaces render
   failures as widget data.

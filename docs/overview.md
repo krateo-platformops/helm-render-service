@@ -2,7 +2,7 @@
 type: Architecture
 title: helm-render-service — overview
 description: What it does and how it works — the client-only render pipeline, the four chart sources, the guardrails, the zero-cluster-access posture, and its place in the portal.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [architecture, render, helm-sdk]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -82,9 +82,9 @@ create form ([api](./api.md#post-diff)).
 
 ## Place in the platform
 
-Deployed by the Krateo installer as the `krateo-helm-render-service` component
+Deployed by the Krateo installer as the `blueprint-render-service` component
 (platform tier, portal feature). The chart ships an optional-but-default-on
-snowplow **Endpoint Secret** (`helm-render-endpoint`) whose `server-url` points
+snowplow **Endpoint Secret** (`blueprint-render-endpoint`) whose `server-url` points
 at the chart's ClusterIP Service — snowplow `RESTAction` POST api-steps resolve
 it via `endpointRef` and call `/render` / `/diff`
 ([usage](./usage.md#snowplow-wiring),
