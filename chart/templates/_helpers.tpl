@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "krateo-helm-render-service.name" -}}
+{{- define "blueprint-render-service.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "krateo-helm-render-service.fullname" -}}
+{{- define "blueprint-render-service.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "krateo-helm-render-service.chart" -}}
+{{- define "blueprint-render-service.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "krateo-helm-render-service.labels" -}}
-helm.sh/chart: {{ include "krateo-helm-render-service.chart" . }}
-{{ include "krateo-helm-render-service.selectorLabels" . }}
+{{- define "blueprint-render-service.labels" -}}
+helm.sh/chart: {{ include "blueprint-render-service.chart" . }}
+{{ include "blueprint-render-service.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,8 +45,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "krateo-helm-render-service.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "krateo-helm-render-service.name" . }}
+{{- define "blueprint-render-service.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "blueprint-render-service.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 

@@ -2,7 +2,7 @@
 type: Example
 title: /render — inline chart tree (builder draft)
 description: POST an inline Chart.yaml + values.yaml + template to /render and get back the rendered ConfigMap — the portal-builder draft path, no registry involved.
-resource: http://krateo-helm-render-service.krateo-system.svc:8080/render
+resource: http://blueprint-render-service.krateo-system.svc:8080/render
 tags: [render, inline, builder]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -20,7 +20,7 @@ A reachable helm-render-service. Either:
 - **local** — from the repo root: `go run .` (listens on `:8080`), or
 - **in-cluster** — a stock Krateo installer deploy (portal feature); run the
   `curl` from a pod and target
-  `http://krateo-helm-render-service.krateo-system.svc:8080`.
+  `http://blueprint-render-service.krateo-system.svc:8080`.
 
 ## Run
 

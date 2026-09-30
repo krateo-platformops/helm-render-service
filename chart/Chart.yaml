@@ -1,6 +1,6 @@
 apiVersion: v2
-name: krateo-helm-render-service
-description: Stateless helm-template render/dry-run HTTP service for the Krateo self-service program (client-only helm SDK, no cluster access)
+name: blueprint-render-service
+description: Blueprint renderer for the Krateo self-service program — stateless helm-template render/dry-run HTTP service for blueprints (Helm charts); client-only helm SDK, no cluster access
 type: application
 
 # CHART_VERSION / APP_VERSION are substituted by .github/workflows/release-oci.yaml

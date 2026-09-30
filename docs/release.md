@@ -2,7 +2,7 @@
 type: Runbook
 title: helm-render-service — release
 description: How a release ships — one plain-semver tag drives the multi-arch image build and the OCI chart publish; what lands where and what to verify.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [release, ci, oci]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -10,7 +10,7 @@ timestamp: 2026-08-07T00:00:00Z
 # Release
 
 One tag ships everything: the container image and the
-`krateo-helm-render-service` chart publish from the same plain-semver tag (one
+`blueprint-render-service` chart publish from the same plain-semver tag (one
 version line — the chart's `appVersion` resolves to the same tag).
 
 ## The runbook
@@ -39,7 +39,7 @@ version line — the chart's `appVersion` resolves to the same tag).
      one first-class chart, substitutes the `Chart.yaml` placeholders
      (`CHART_VERSION` → the tag; `APP_VERSION` → the latest app semver tag —
      the same tag, since app and chart live in one repo), packages, and pushes
-     → `oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service:X.Y.Z`.
+     → `oci://ghcr.io/krateo-platformops/charts/blueprint-render-service:X.Y.Z`.
    - The `testdata/charts/` fixtures are **not** published: they store their
      manifest as `Chart.yaml.tpl`, invisible to the workflow's
      `find . -name Chart.yaml` discovery (the tests rename it in memory).
@@ -47,12 +47,12 @@ version line — the chart's `appVersion` resolves to the same tag).
 4. **Verify** the artifacts exist and pair up:
 
    ```sh
-   helm show chart oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service --version X.Y.Z
+   helm show chart oci://ghcr.io/krateo-platformops/charts/blueprint-render-service --version X.Y.Z
    # appVersion in the output must equal X.Y.Z
    ```
 
 5. **Roll it out** by bumping the Krateo installer's
-   `krateo-helm-render-service` component pin, or `helm upgrade` on a
+   `blueprint-render-service` component pin, or `helm upgrade` on a
    standalone install ([usage](./usage.md)).
 
 ## Docs

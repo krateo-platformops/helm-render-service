@@ -17,11 +17,11 @@ Full picture: [docs/index.md](docs/index.md).
 ## Install
 
 Normally installed by the **Krateo installer** (component
-`krateo-helm-render-service`, portal feature). Standalone:
+`blueprint-render-service`, portal feature). Standalone:
 
 ```sh
-helm install krateo-helm-render-service \
-  oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service \
+helm install blueprint-render-service \
+  oci://ghcr.io/krateo-platformops/charts/blueprint-render-service \
   --version 0.3.0 --namespace krateo-system
 ```
 
@@ -33,7 +33,7 @@ See [docs/configuration.md](docs/configuration.md). Most used:
 
 | Setting | Default | Effect |
 |---|---|---|
-| `snowplowEndpoint.enabled` | `true` | Ship the `helm-render-endpoint` Secret snowplow RESTActions resolve via `endpointRef`. |
+| `snowplowEndpoint.enabled` | `true` | Ship the `blueprint-render-endpoint` Secret snowplow RESTActions resolve via `endpointRef`. |
 | `config.renderTimeout` | `""` (binary default `15s`) | Per-request render timeout; one `/diff` shares a single budget across both renders. |
 | `config.allowHTTP` | `false` | Allow plain `http://` chart URLs (trusted dev only; `file://` always rejected). |
 

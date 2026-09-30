@@ -2,7 +2,7 @@
 type: API
 title: helm-render-service — API
 description: The HTTP+JSON contract — POST /render (four chart sources), POST /diff (object diff + field-level valuesSchemaDiff), GET /healthz, and the 200-error model.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [api, http, render, diff]
 timestamp: 2026-08-07T00:00:00Z
 ---

@@ -2,7 +2,7 @@
 type: Configuration
 title: helm-render-service — configuration
 description: The whole config surface — every HRS_* env var with its default, and every chart value (image, service, resources, config, snowplowEndpoint), schema-typed.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [configuration, values, env]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -31,7 +31,7 @@ startup, by design.
 
 ## Chart values
 
-From `chart/values.yaml` (chart name: `krateo-helm-render-service`):
+From `chart/values.yaml` (chart name: `blueprint-render-service`):
 
 | Value | Default | Effect |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ From `chart/values.yaml` (chart name: `krateo-helm-render-service`):
 | `config.maxOutputBytes` | `""` | Sets `HRS_MAX_OUTPUT_BYTES` |
 | `config.allowHTTP` | `false` | When `true`, sets `HRS_ALLOW_HTTP=true` |
 | `snowplowEndpoint.enabled` | `true` | Render the snowplow Endpoint Secret ([usage](./usage.md#snowplow-wiring)); default ON so the installer component needs no extra values |
-| `snowplowEndpoint.name` | `helm-render-endpoint` | The Secret's name |
+| `snowplowEndpoint.name` | `blueprint-render-endpoint` | The Secret's name |
 
 **The `config.*` contract**: an empty string leaves the env var unset, so the
 binary's built-in default (table above) applies — the chart never restates

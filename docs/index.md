@@ -2,7 +2,7 @@
 type: Component
 title: helm-render-service — index
 description: The map of the helm-render-service doc bundle — the stateless helm-template render/dry-run HTTP service the Krateo portal calls for chart previews and upgrade impact.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [portal, render, helm, dry-run]
 timestamp: 2026-08-07T00:00:00Z
 ---

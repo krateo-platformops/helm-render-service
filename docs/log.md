@@ -2,7 +2,7 @@
 type: Log
 title: helm-render-service — log
 description: Curated chronological history — notable changes, decisions and incidents; release notes stay in GitHub Releases.
-resource: oci://ghcr.io/krateo-platformops/charts/krateo-helm-render-service
+resource: oci://ghcr.io/krateo-platformops/charts/blueprint-render-service
 tags: [history]
 timestamp: 2026-08-07T00:00:00Z
 ---
@@ -10,6 +10,19 @@ timestamp: 2026-08-07T00:00:00Z
 # Log
 
 Curated history, newest first.
+
+## 2026-10-01 — chart renamed to `blueprint-render-service`
+
+The chart is now `blueprint-render-service` (published at
+`oci://ghcr.io/krateo-platformops/charts/blueprint-render-service`) and its
+snowplow Endpoint Secret defaults to `blueprint-render-endpoint`: this is the
+blueprint renderer, and the name says so. core-provider derives the CRD kind
+from the chart name, so the installer component becomes
+`BlueprintRenderService` — a new component replacing the old one, not an
+in-place upgrade. The repo, Go module, binary and container image
+(`ghcr.io/krateo-platformops/helm-render-service`) keep their names. The Secret
+is renamed rather than added, so the portal RESTActions that resolve it must
+move to `blueprint-render-endpoint` in the same rollout.
 
 ## 2026-09-28 — `lookupStubs`: preview past `lookup` gates
 
