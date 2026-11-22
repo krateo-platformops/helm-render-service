@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # Moves the commit-pinned reusable workflows and actions forward by pull request, so a pin is never
+  # frozen and a breaking upstream change arrives as a reviewable diff instead of a broken run.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
